@@ -4,4 +4,4 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jsonrpc import JSONRPC
 
 db = SQLAlchemy()
-jsonrpc = JSONRPC()
+jsonrpc = JSONRPC(service_url='/jsonrpc')
