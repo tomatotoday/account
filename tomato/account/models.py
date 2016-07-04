@@ -2,10 +2,9 @@
 
 from time import mktime
 
-from flask_user import UserMixin
 from tomato.account.core import db
 
-class UserProfile(db.Model, UserMixin):
+class UserProfile(db.Model):
 
     __tablename__ = 'user_profile'
 
@@ -36,7 +35,7 @@ class UserEmail(db.Model):
 
 
 # Define UserAuth DataModel. Make sure to add flask.ext.user UserMixin!!
-class UserAuth(db.Model, UserMixin):
+class UserAuth(db.Model):
 
     __tablename__ = 'user_auth'
 
