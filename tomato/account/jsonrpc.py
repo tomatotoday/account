@@ -61,7 +61,7 @@ def get_grant(client_id, code):
     grant = Grant.query.filter_by(client_id=client_id, code=code).first()
     return grant and grant.to_dict()
 
-@jsonrpc.method('Oauth2.save_grant')
+@jsonrpc.method('OAuth2.save_grant')
 def save_grant(client_id, code, redirect_uri, scopes, user_id):
     expires = datetime.utcnow() + timedelta(seconds=100)
     grant = Grant(
