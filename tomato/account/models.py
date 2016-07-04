@@ -4,9 +4,9 @@ from time import mktime
 
 from tomato.account.core import db
 
-class UserProfile(db.Model):
+class User(db.Model):
 
-    __tablename__ = 'user_profile'
+    __tablename__ = 'user'
 
     id = db.Column(db.Integer, primary_key=True)
     nickname = db.Column(db.String(50), nullable=False)
