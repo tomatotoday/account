@@ -86,7 +86,7 @@ class Client(db.Model):
 
     @property
     def default_redirect_uri(self):
-        return self.redirect_uris[0]
+        return self.redirect_uris and self.redirect_uris[0] or None
 
     @property
     def default_scopes(self):
@@ -103,6 +103,7 @@ class Client(db.Model):
             client_secret=self.client_secret,
             client_type=self.client_type,
             redirect_uris=self.redirect_uris,
+            default_redirect_uri=self.default_redirect_uri,
             default_scopes=self.default_scopes,
         )
 
