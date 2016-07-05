@@ -16,6 +16,14 @@ class User(db.Model):
     def is_active(self):
       return self.is_enabled
 
+    def to_dict(self):
+        return dict(
+            id=self.id,
+            nickname=self.nickname,
+            description=self.description,
+            is_enabled=self.is_enabled,
+        )
+
 
 # Define UserEmail DataModel.
 class UserEmail(db.Model):
