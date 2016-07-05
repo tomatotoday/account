@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import string
+from random import choice
 from time import mktime
 from datetime import datetime
 from datetime import timedelta
@@ -55,6 +57,25 @@ def get_client(client_id):
     client = Client.query.filter_by(client_id=client_id).first()
     return client and client.to_dict()
 
+def _gen(length):
+    return "".join(choice(string.digits+string.ascii_lowercase) for x in range(length))
+
+@jsonrpc.method('Admin.save_client')
+def save_client(name, description, user_id, is_confidential, redirect_uris, default_scopes):
+    client = Client(
+        name=name,
+        description=description,
+        user_id=user_id,
+        is_confidential=is_confidential,
+        _redirect_uris=' '.join(redirect_uris),
+        _default_scopes=' '.join(default_scopes),
+        client_id=_gen(32),
+        client_secret=_gen(40),
+    )
+    db.session.add(client)
+    db.session.commit()
+    return client.to_dict()
+
 @jsonrpc.method('OAuth2.get_grant')
 def get_grant(client_id, code):
     grant = Grant.query.filter_by(client_id=client_id, code=code).first()
@@ -100,10 +121,9 @@ def register_user_by_email(nickname, email, password):
     try:
         user = User(nickname=nickname, is_enabled=True)
         db.session.add(user)
-        user.flush()
+        db.session.flush()
         user_email = UserEmail(user_id=user.id, email=email, is_primary=True)
         db.session.add(user_email)
-        user_email.flush()
         salted_password = generate_password_hash(password)
         user_auth = UserAuth(user_id=user.id, password=salted_password)
         db.session.add(user_auth)
