@@ -9,9 +9,21 @@ from datetime import timedelta
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 from werkzeug.security import check_password_hash
+from flask_jsonrpc.exceptions import InvalidParamsError
+from wtforms import Form
+from wtforms.fields import StringField
+from wtforms.fields import IntegerField
+from wtforms.fields import PasswordField
+from wtforms.fields import FieldList
+from wtforms.validators import Email
+from wtforms.validators import Length
+from wtforms.validators import DataRequired
+from wtforms.validators import ValidationError
 
 from tomato.account.core import db
 from tomato.account.core import jsonrpc
+import tomato.account.transactions as txc
+from tomato.account.consts import ALLOWED_SCOPES
 from tomato.account.models import Client
 from tomato.account.models import Grant
 from tomato.account.models import Token
@@ -19,67 +31,79 @@ from tomato.account.models import User
 from tomato.account.models import UserEmail
 from tomato.account.models import UserAuth
 
+
+class AccessTokenForm(Form):
+    access_token = StringField('Access Token', [Length(min=1, )])
+
 @jsonrpc.method('OAuth2.get_token_by_access_token')
 def get_token_by_access_token(access_token):
-    token = Token.query.filter_by(access_token=access_token).first()
-    return token and token.to_dict()
+    form = AccessTokenForm(data={'access_token': access_token})
+    if not form.validate():
+        raise InvalidParamsError
+    return txc.get_token_by_access_token(access_token)
+
+class RefreshTokenForm(Form):
+    refresh_token = StringField('Refresh Token', [Length(min=1, )])
 
 @jsonrpc.method('OAuth2.get_token_by_refresh_token')
-def get_token_by_access_token(refresh_token):
-    token = Token.query.filter_by(refresh_token=refresh_token).first()
-    return token and token.to_dict()
+def get_token_by_refresh_token(refresh_token):
+    form = RefreshTokenForm(data={'refresh_token': refresh_token})
+    if not form.validate():
+        raise InvalidParamsError
+    return txc.get_token_by_refresh_token(refresh_token)
+
+class SaveTokenForm(Form):
+    client_id = StringField('Client ID', [DataRequired(), Length(min=1, )])
+    user_id = IntegerField('User ID', [DataRequired(), ])
+    expires_in = IntegerField('Expires In', [DataRequired(), ])
+    access_token = StringField('Access Token', [DataRequired(), ])
+    refresh_token = StringField('Refresh Token', [DataRequired(), ])
+    token_type = StringField('Token Type', [DataRequired(), ])
+    scopes = FieldList(StringField('Scope', [DataRequired(), ]))
+
+    def validate_user_id(self, field):
+        if not User.query.get(field.data):
+            raise ValidationError('User must be existed.')
+
+    def validate_token_type(self, field):
+        if field.data != 'bearer':
+            raise ValidationError(
+                    'Currently only support `bearer`, but given `%s`' % field.data)
+
+    def validate_scopes(self, field):
+        invalid_scopes = [
+            scope for scope in field.data
+            if scope not in ALLOWED_SCOPES
+        ]
+        if invalid_scopes:
+            raise ValidationError(
+                    'Invalid scopes: %s' % ','.join(invalid_scopes))
 
 @jsonrpc.method('OAuth2.save_token')
 def save_token(client_id, user_id, expires_in, access_token,
                refresh_token, token_type, scopes):
-    # make sure that every client has only one token connected to a user
-    tokens = Token.query.filter_by(client_id=client_id, user_id=user_id)
-    for token in tokens:
-        db.session.delete(token)
+    form = SaveTokenForm(data={
+        'client_id': client_id,
+        'user_id': user_id,
+        'expires_in': expires_in,
+        'access_token': access_token,
+        'refresh_token': refresh_token,
+        'token_type': token_type,
+        'scopes': scopes,
+    })
+    if not form.validate():
+        raise InvalidParamsError
 
-    expires = datetime.utcnow() + timedelta(seconds=expires_in)
-
-    token = Token(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type=token_type,
-        _scopes=scopes,
-        expires=expires,
-        client_id=client_id,
-        user_id=user_id,
-    )
-    db.session.add(token)
-    db.session.commit()
-    return token.to_dict()
+    return txc.save_token(**field.data)
 
 @jsonrpc.method('OAuth2.get_client')
 def get_client(client_id):
-    client = Client.query.filter_by(client_id=client_id).first()
-    return client and client.to_dict()
+    return txc.get_client(client_id)
 
-def _gen(length):
-    return "".join(choice(string.digits+string.ascii_lowercase) for x in range(length))
-
-@jsonrpc.method('Admin.save_client')
-def save_client(name, description, user_id, is_confidential, redirect_uris, default_scopes):
-    client = Client(
-        name=name,
-        description=description,
-        user_id=user_id,
-        is_confidential=is_confidential,
-        _redirect_uris=' '.join(redirect_uris),
-        _default_scopes=' '.join(default_scopes),
-        client_id=_gen(32),
-        client_secret=_gen(40),
-    )
-    db.session.add(client)
-    db.session.commit()
-    return client.to_dict()
 
 @jsonrpc.method('OAuth2.get_grant')
 def get_grant(client_id, code):
-    grant = Grant.query.filter_by(client_id=client_id, code=code).first()
-    return grant and grant.to_dict()
+    return txc.get_grant(client_id, code)
 
 @jsonrpc.method('OAuth2.save_grant')
 def save_grant(client_id, code, redirect_uri, scopes, user_id):
@@ -111,23 +135,27 @@ def validate_user(username, password):
 
 @jsonrpc.method('Account.get_user_by_token')
 def get_user_by_token(token, token_type='bearer'):
-    token = Token.query.filter_by(token=token).first()
-    if not token:
-        return
-    return token.user.to_dict()
+    return txc.get_user_by_token(token, token_type)
+
+class RegisterByEmail(Form):
+    nickname = StringField('Nickname', [Length(min=1, max=32)])
+    email = Email()
+    password = PasswordField('Password', [DataRequired(), ])
 
 @jsonrpc.method('Account.register_user_by_email')
 def register_user_by_email(nickname, email, password):
+    form = RegisterByEmail(data={
+        'nickname': nickname,
+        'email': email,
+        'password': password,
+    })
+    if not form.validate():
+        raise InvalidParamsError
     try:
-        user = User(nickname=nickname, is_enabled=True)
-        db.session.add(user)
-        db.session.flush()
-        user_email = UserEmail(user_id=user.id, email=email, is_primary=True)
-        db.session.add(user_email)
-        salted_password = generate_password_hash(password)
-        user_auth = UserAuth(user_id=user.id, password=salted_password)
-        db.session.add(user_auth)
-        db.session.commit()
-        return user.to_dict()
-    except IntegrityError:
-        db.session.rollback()
+        return txc.register_user_by_email(
+            nickname=nickname,
+            email=email,
+            password=password,
+        )
+    except txc.AlreadyRegistered:
+        raise InvalidParamsError
