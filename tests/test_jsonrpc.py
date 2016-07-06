@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 
 from pytest import fixture
+
+from tomato.account.transactions import save_client
+from tomato.account.transactions import register_user_by_email
 from tomato.account import jsonrpc
 
 @fixture
 def user(app, db):
-    return jsonrpc.register_user_by_email('nickname', 'test@example.org', 'test')
+    return register_user_by_email('nickname', 'test@example.org', 'test')
 
 @fixture
 def client(user):
-    return jsonrpc.save_client('client', 'desc', user['id'], True, ['http://x.y.z'], ['scope'])
+    return save_client('client', 'desc', user['id'], True, ['http://x.y.z'], ['scope'])
 
 def test_validate_user(user):
     assert user['id']
