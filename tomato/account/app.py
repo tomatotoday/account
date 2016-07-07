@@ -12,7 +12,7 @@ from tomato.account import jsonrpc as jsonrpc_views
 def create_app():
     app = Flask(__name__)
 
-    app.config.from_object('tomato.discussion.settings')
+    app.config.from_object('tomato.account.settings')
     app.config.from_envvar('ACCOUNT_SETTINGS', silent=True)
     print('Running application in %s mode' % (app.debug and 'DEBUG' or 'NON-DEBUG'))
 
