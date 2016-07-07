@@ -12,6 +12,7 @@ requirements = [
     'flask==0.11.1',
     'flask-jsonrpc==0.3.1',
     'flask-sqlalchemy==2.1',
+    'flask-wtforms==2.1',
 ]
 
 test_requirements = [
