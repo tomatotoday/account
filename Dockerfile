@@ -12,4 +12,4 @@ RUN pip install gunicorn gevent
 
 EXPOSE 10000
 
-CMD gunicorn -w 8 -b 0.0.0.0:10004 -k gevent tomato.api.wsgi:app
+CMD gunicorn -w 8 -b 0.0.0.0:10004 -k gevent tomato.account.wsgi:app
