@@ -10,6 +10,6 @@ RUN cd /tmp/app && python setup.py install
 
 RUN pip install gunicorn gevent
 
-EXPOSE 10000
+EXPOSE 10004
 
 CMD gunicorn -w 8 -b 0.0.0.0:10004 -k gevent tomato.account.wsgi:app
