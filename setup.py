@@ -21,7 +21,7 @@ test_requirements = [
 
 setup(
     name='tomato.account',
-    version='0.1.1',
+    version='0.1.2',
     description="tomato account.",
     long_description=readme,
     author="Ju Lin",
