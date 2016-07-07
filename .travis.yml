@@ -12,3 +12,6 @@ script:
 
 env:
   - DOCKER_IMAGE_NAME=tomatotoday/account
+
+notifications:
+  slack: tomatotoday:$SLACK_TOKEN
